@@ -10,7 +10,7 @@ fn main() -> std::io::Result<()> {
 
     // iterate over lines
     for (i, line) in file_str.lines().enumerate() {
-        println!("{}", line);
+        println!("{}: {}", i, line);
         // Do stuff with the individual lines
     }
 
