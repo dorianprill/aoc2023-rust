@@ -53,8 +53,8 @@ fn main() -> std::io::Result<()> {
         let (node_str, choices) = connection.split_once(" = ").unwrap();
         let node = node_str.trim().chars().collect::<String>();
         let (left, right) = choices.split_once(",").unwrap();
-        let left = left.trim().chars().filter(|c| c.is_alphabetic()).collect::<String>();
-        let right = right.trim().chars().filter(|c| c.is_alphabetic()).collect::<String>();
+        let left = left.chars().filter(|c| c.is_alphabetic()).collect::<String>();
+        let right = right.chars().filter(|c| c.is_alphabetic()).collect::<String>();
         println!("Node: {} => {},{}", node, left, right);
         graph.insert(node, (left, right));
     }
