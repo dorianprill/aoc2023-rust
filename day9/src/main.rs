@@ -10,7 +10,7 @@ fn main() -> std::io::Result<()> {
     let mut end_extrapolation_sum: i64 = 0;
     let mut start_extrapolation_sum: i64 = 0;
     // create 2D vector of integers to store the difference series
-    // to prevent allocations in main loop e.g. 
+    // for one line to prevent allocations in main loop e.g. 
     // height/width is max length of series in input file
     // 0   3   6   9  12  15 // <- original series
     // 3   3   3   3   3
@@ -24,7 +24,8 @@ fn main() -> std::io::Result<()> {
     for (i, line) in file_str.lines().enumerate() {
 
         // parse the original series of integers
-        diff_series[0] = line.split_whitespace()
+        diff_series[0] = line
+            .split_whitespace()
             .map(|s| s.parse().unwrap())
             .collect();
 
