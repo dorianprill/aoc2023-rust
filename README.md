@@ -9,6 +9,6 @@ Doing Advent of Code 2023 in Rust - just for joy and:
 - getting to know Rust's stdlib better
 
 
-Each excercise has its own cargo project subdirectory with the sample input in `sample.txt` and my personalized `input.txt` as well as the solution to both parts in `src/main.rs`.
+Each exercise has its own cargo project subdirectory with the sample input in `sample.txt` and my personalized `input.txt` as well as the solution to both parts in `src/main.rs`.
 
 The top level (where you find this `README.md`) contains a template file `template.rs` that I started from each day.
