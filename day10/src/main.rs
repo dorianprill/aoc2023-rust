@@ -170,6 +170,13 @@ enum MapCell {
 
 impl MapCell {
 
+    fn is_empty(&self) -> bool {
+        match self {
+            MapCell::Empty => true,
+            _ => false,
+        }
+    }
+
     fn is_start(&self) -> bool {
         match self {
             MapCell::Start(_) => true,
@@ -228,7 +235,7 @@ impl std::fmt::Display for MapCell {
 }
 
 
-// create a grid of 140x140 MapCells (my personal input size)
+// create a grid of 141x141 MapCells (my personal input size)
 struct MapGrid {
     // note: grid is column major
     grid: [[MapCell; 141]; 141],
@@ -297,11 +304,39 @@ impl MapGrid {
         }
         directions
     }
+
+    /// TODO
+    /// replace the start cell with the correct pipe segment
+    /// this is important for the scanline approach for part2
+    fn replace_start(&mut self, pipeloop: &Vec<(usize, usize)>) {
+        let (y, x) = self.start;
+        // find the precursor and successor of the start
+        let mut start_precursor = (0, 0);
+        let mut start_successor = (0, 0);
+        for (i, (y2, x2)) in pipeloop.iter().enumerate() {
+            if *y2 == y && *x2 == x {
+                if i == 0 {
+                    start_precursor = pipeloop[pipeloop.len()-1];
+                    start_successor = pipeloop[1];
+                } else if i == pipeloop.len()-1 {
+                    start_precursor = pipeloop[pipeloop.len()-2];
+                    start_successor = pipeloop[0];
+                } else {
+                    start_precursor = pipeloop[i-1];
+                    start_successor = pipeloop[i+1];
+                }
+                break;
+            }
+        }
+        // TODO find out the cardinal direction from the coordinates
+        
+
+    }
 }
 
 
 fn main() -> std::io::Result<()> {
-    let input_file = "input.txt";
+    let input_file = "sample3.txt";
 
     println!("Input file: {:?}", input_file);
 
@@ -309,7 +344,7 @@ fn main() -> std::io::Result<()> {
     let file_str = read_to_string(input_file)?;
 
     // read MapGrid form input string
-    let map = MapGrid::from_str(&file_str);
+    let mut map = MapGrid::from_str(&file_str);
 
     println!("Input Map:");
     for line in file_str.lines() {
@@ -317,7 +352,7 @@ fn main() -> std::io::Result<()> {
     }
     println!("Parsed MapGrid:");
     // print map
-    map.print();
+    //map.print();
     println!("Start Coordinates: {:?}", map.start);
 
     let (starty, startx) = map.start;
@@ -332,15 +367,118 @@ fn main() -> std::io::Result<()> {
         Err(std::io::Error::new(std::io::ErrorKind::Other, "Did not find loop"))?;
     }
 
-    // now find the maximum steps away
-    // this is an overlap convolution of two constant (=1) vectors 
-    // with length of the loop (actually half, because we only care for the overlapping part)
+    // now find the maximum steps away from S
     let step_series: Vec<usize> = (1..=pipeloop.len()/2) // Increasing part
         .chain((1..pipeloop.len()/2).rev()) // Decreasing part
         .collect(); // Collect into a vector
 
     println!("step_series: {:?} len: {}", step_series, step_series.len());
     println!("Maximum Distance: {} steps", step_series.iter().max().unwrap());
+
+    // now we apply the polygonal jordan curve theorem
+    // by scanning through the lines of the map
+    // and counting the number of intersections with the loop and the number of tiles
+    // odd intersections mean the tiles are inside the loop
+    // even intersections mean the tiles are outside the loop
+    
+    // TODOreplace 'S' with adequate pipe segment 
+    //map.replace_start(&pipeloop);
+    map.print();
+
+    let mut area: usize = 0;
+    let mut intersections: usize = 0;
+    for (i, row) in map.grid.iter().enumerate() {
+        if i > map.ymax {
+            break;
+        }
+        for (j, cell) in row.iter().enumerate() {
+            if j > map.xmax {
+                break;
+            }
+            // cast out a ray from the current cell to the right
+            intersections = 0;
+            let mut opening_segment = PipeSegment::Corner(false, false, false, false);
+            for k in j+1..=map.xmax {
+                
+                if map.grid[i][k].is_pipe_segment() 
+                    && pipeloop.contains(&(i, k)) {
+
+                    // because of direction changes in North-South
+                    // F----7 and 
+                    // L----J is 2 intersections (pockets)
+                    // L----7 and 
+                    // F----J is 1 intersection (saddles)
+
+                    // match and save opening segment, skip the rest
+                    match map.grid[i][k] {
+                        // F
+                        MapCell::PipeSegment(PipeSegment::Corner(_, true, true, _)) => {
+                            opening_segment = PipeSegment::Corner(false, true, true, false);
+                            println!("found opening segment: {:?}", opening_segment);
+                            continue;
+                        }, // L
+                        MapCell::PipeSegment(PipeSegment::Corner(true, true, _, _)) => {
+                            opening_segment = PipeSegment::Corner(true, true, false, false);
+                            println!("found opening segment: {:?}", opening_segment);
+                            continue;
+                        },
+                        MapCell::PipeSegment(PipeSegment::Straight(_, true, _, true)) => {
+                            //println!("skipping '-' at ({}, {})", i, k);
+                            continue; //ignore all '-'
+                        },
+                        _ => (),
+                    }
+                    // match closing statement on the loop and skip all '-'
+                    match opening_segment {
+                        // F
+                        PipeSegment::Corner(false, true, true, false) => {
+                                match map.grid[i][k] {
+                                    // J
+                                    MapCell::PipeSegment(PipeSegment::Corner(true, _, _, true)) => {
+                                        intersections += 1;
+                                        opening_segment = PipeSegment::Corner(false, false, false, false);
+                                        println!("found closing segment: {:?}", map.grid[i][k]);
+                                    },
+                                    // 7
+                                    MapCell::PipeSegment(PipeSegment::Corner(_, _, true, true)) => {
+                                        intersections += 2;
+                                        opening_segment = PipeSegment::Corner(false, false, false, false);
+                                        println!("found closing segment: {:?}", map.grid[i][k]);
+                                    },
+                                    _ => (),
+                                }
+                        },
+                        // L
+                        PipeSegment::Corner(true, true, false, false) => {
+                                match map.grid[i][k] {
+                                    // 7
+                                    MapCell::PipeSegment(PipeSegment::Corner(_, true, true, _)) => {
+                                        intersections += 1;
+                                        opening_segment = PipeSegment::Corner(false, false, false, false);
+                                        println!("found closing segment: {:?}", map.grid[i][k]);
+                                    },
+                                    // J
+                                    MapCell::PipeSegment(PipeSegment::Corner(true, true, _, _)) => {
+                                        intersections += 2;
+                                        opening_segment = PipeSegment::Corner(false, false, false, false);
+                                        println!("found closing segment: {:?}", map.grid[i][k]);
+                                    },
+                                    _ => (),
+                                }
+                        },
+                        _ => (),
+                    }
+                }
+            }
+            if !pipeloop.contains(&(i,j)) && intersections % 2 == 1 {
+                println!("Cell: {:?} ({}, {}) counted due to {} intersections", cell, i, j, intersections);
+                area += 1;
+            }
+        }
+        //println!("Row: {} Intersections: {} Area: {}", i, intersections, area)
+    }
+
+    println!("Area inside loop: {}", area);
 
     Ok(())
 }
@@ -350,11 +488,11 @@ fn main() -> std::io::Result<()> {
 // assumes there is only one loop connected to the start
 // comment out the println!() statements to prevent stack overflow
 fn find_loop_dfs(map: &MapGrid, path: &mut Vec<(usize, usize)>, x: usize, y: usize, start_x: usize, start_y: usize, from_direction: Option<CardinalDirection>) -> bool {
-    if path.contains(&(x, y)) {
+    if path.contains(&(y, x)) {
         return x == start_x && y == start_y;
     }
 
-    path.push((x, y));
+    path.push((y, x));
 
     let directions = map.connected_directions(x, y);
     //println!("{:?} ({}) ---> {:?}", map.grid[y][x], map.grid[y][x], directions);
